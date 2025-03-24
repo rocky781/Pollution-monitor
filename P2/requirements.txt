@@ -1,0 +1,5 @@
+Flask
+requests
+sqlite3
+bcrypt
+python-dotenv

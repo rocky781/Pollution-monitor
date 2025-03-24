@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pollution Detector</title>
+
+    <!-- Leaflet CSS & JS for Map -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; }
+        #map { height: 400px; width: 80%; margin: 20px auto; border-radius: 10px; }
+        input, button { padding: 10px; font-size: 16px; margin: 10px; }
+        table { margin: auto; border-collapse: collapse; width: 50%; }
+        th, td { padding: 10px; border: 1px solid black; text-align: center; }
+        .level { padding: 5px; border-radius: 5px; color: white; }
+        .logout { position: absolute; top: 10px; right: 20px; }
+    </style>
+</head>
+<body>
+
+    <h1>Pollution Detector</h1>
+
+    <!-- Welcome message & Logout button -->
+    <div>
+        <p>Welcome, <b>{{ username }}</b>! <a class="logout" href="{{ url_for('logout') }}">Logout</a></p>
+    </div>
+
+    <p>Enter a city to check its pollution levels:</p>
+    <input type="text" id="cityInput" placeholder="Enter city name">
+    <button onclick="searchCity()">Search</button>
+
+    <div id="safetyMessage" style="font-size: 18px; font-weight: bold; margin-top: 10px;"></div>
+
+    <table>
+        <tr>
+            <th>Pollutant</th>
+            <th>Value (µg/m³)</th>
+            <th>Status</th>
+        </tr>
+        <tr>
+            <td>PM2.5</td>
+            <td id="pm2_5_value"></td>
+            <td id="pm2_5_status"></td>
+        </tr>
+        <tr>
+            <td>PM10</td>
+            <td id="pm10_value"></td>
+            <td id="pm10_status"></td>
+        </tr>
+        <tr>
+            <td>CO</td>
+            <td id="co_value"></td>
+            <td id="co_status"></td>
+        </tr>
+    </table>
+
+    <div id="map"></div>
+
+    <script>
+        var map = L.map('map').setView([20.5937, 78.9629], 5);
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(map);
+
+        var marker;
+
+        function searchCity() {
+            var city = document.getElementById("cityInput").value;
+
+            fetch('/get_pollution', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ city: city })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    alert(data.error);
+                    return;
+                }
+
+                // Update pollution values
+                document.getElementById("pm2_5_value").innerText = data.components.pm2_5;
+                document.getElementById("pm10_value").innerText = data.components.pm10;
+                document.getElementById("co_value").innerText = data.components.co;
+
+                // Update pollution status with colors
+                document.getElementById("pm2_5_status").innerHTML = `<span class="level" style="background-color: ${data.color};">${data.pollution_status}</span>`;
+                document.getElementById("pm10_status").innerHTML = `<span class="level" style="background-color: ${data.color};">${data.pollution_status}</span>`;
+                document.getElementById("co_status").innerHTML = `<span class="level" style="background-color: ${data.color};">${data.pollution_status}</span>`;
+
+                // Update safety message
+                document.getElementById("safetyMessage").innerHTML = `<b style="color:${data.color}">${data.safe_to_visit}</b>`;
+
+                // Update map location
+                if (marker) {
+                    map.removeLayer(marker);
+                }
+                marker = L.marker([data.lat, data.lon]).addTo(map)
+                    .bindPopup(`<b>${city}</b><br>${data.pollution_status}`)
+                    .openPopup();
+
+                map.setView([data.lat, data.lon], 10);
+            })
+            .catch(error => console.error('Error:', error));
+        }
+    </script>
+</body>
+</html>
